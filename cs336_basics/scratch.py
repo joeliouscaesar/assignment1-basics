@@ -1,4 +1,4 @@
-import re
+import regex as re
 import os
 # chr(0)
 # print(chr(0))
@@ -36,7 +36,7 @@ def bpe_naive(
     # **kwargs,
 ):
     # Pretokenize 
-    PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\\p{L}+| ?\\p{N}+| ?[^\s\\p{L}\\p{N}]+|\s+(?!\S)|\s+"""
+    PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
     pretokens = re.findall(PAT, input)
     # Initialize Vocabulary
     vocab = [(x,) for x in range(256)]
@@ -223,7 +223,9 @@ def bpe_less_naive(
     vocab += [bytes(st,"utf-8") for st in special_tokens]
     merges = []
     # Pretokenize 
-    PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\\p{L}+| ?\\p{N}+| ?[^\s\\p{L}\\p{N}]+|\s+(?!\S)|\s+"""
+    PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+    with open(input_path, "r") as fi:
+        input = fi.read()
     pretoken_re = re.finditer(PAT, input)
     # hash of pretokens
     pretoken_hash = {}
@@ -331,8 +333,9 @@ def get_new_pairs(pretoken:Pretoken, inds:list[int]):
     new_pairs = []
     for ind in inds:
         if ind > 0:
-            # backwards pair
-            new_pairs.append((pretoken.alphabet_list[ind-1], pretoken.alphabet_list[ind]))
+            if pretoken.alphabet_list[ind-1] != pretoken.alphabet_list[ind]:
+                # backwards pair
+                new_pairs.append((pretoken.alphabet_list[ind-1], pretoken.alphabet_list[ind]))
         if ind < (len(pretoken.alphabet_list) - 1):
             # forwards pair
             new_pairs.append((pretoken.alphabet_list[ind], pretoken.alphabet_list[ind+1]))
@@ -340,8 +343,8 @@ def get_new_pairs(pretoken:Pretoken, inds:list[int]):
         
 if __name__ == "__main__":
     input = """low low low low low lower lower widest widest widest newest newest newest newest newest newest"""
-
-    (vocab, merges) = bpe_less_naive(input, 268, [])
-
+    with open("temp.txt","w") as fi:
+        fi.write(input)
+    (vocab, merges) = bpe_less_naive("temp.txt", 268, [])
     print(f"merges {merges}")
 
