@@ -339,11 +339,9 @@ def get_new_pairs(pretoken:Pretoken, inds:list[int]):
     return new_pairs
         
 if __name__ == "__main__":
-    input = """low low low low low lower 
-    lower widest widest widest 
-    newest newest newest newest newest newest"""
+    input = """low low low low low lower lower widest widest widest newest newest newest newest newest newest"""
 
-    (vocab, merges) = bpe_less_naive(input, 268)
+    (vocab, merges) = bpe_less_naive(input, 268, [])
 
     print(f"merges {merges}")
 
