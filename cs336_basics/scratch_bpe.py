@@ -1,164 +1,9 @@
 import regex as re
 import os
-# chr(0)
-# print(chr(0))
-# ord('0')
-
-# test_string = "🏡"
-
-# utf8_encoded = test_string.encode("utf-8")
-
-# byte_list = list(utf8_encoded)
-
-# # pre-tokenize
-# def decode_utf8_bytes_to_str_wrong(bytestring: bytes):
-#     return "".join([bytes([b]).decode("utf-8") for b in bytestring])
-
-
-# test_string[:2]
-# decode_utf8_bytes_to_str_wrong(utf8_encoded)
-# utf8_encoded.decode()
-
-# house_bytes = utf8_encoded[:2]
-# house_bytes.decode()
-
-# x = 'a'.encode()
-
-
-
-###########################################################################
-
-def bpe_naive(
-    # input_path: str | os.PathLike,
-    input: str,
-    vocab_size: int
-    # special_tokens: list[str],
-    # **kwargs,
-):
-    # Pretokenize 
-    PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
-    pretokens = re.findall(PAT, input)
-    # Initialize Vocabulary
-    vocab = [(x,) for x in range(256)]
-    # While vocab is small enough
-    while len(vocab) < vocab_size:
-        # encode the pretokens
-        encoded_pretokens = [tuple(pretoken.encode()) for pretoken in pretokens]
-        pair_counts = {}
-        for pretoken in encoded_pretokens:
-            vocablist = bytelist_to_vocablist(pretoken, vocab)
-            vocabpairs = vocablist_to_vocabpairs(vocablist)
-            for vocabpair in vocabpairs:
-                pair_counts[tuple(vocabpair)] = pair_counts.get(tuple(vocabpair), 0) + 1
-        most_common_pair = get_most_common_pair(pair_counts)
-        vocab.append(most_common_pair)
-    # convert to dict
-    vocab_dict = {}
-    for (i, v) in enumerate(vocab):
-        vocab_dict[i] = v
-    merges = vocab[256:]
-    return (vocab_dict, merges)
-
-# (vocab, merges) = bpe_naive(input, 262)
-
-# clean_merges = []
-# for m in merges:
-#     cleaned = [chr(b) for b in m]
-#     clean_merges.append(tuple(cleaned))
-
-# pretokenizer
-def get_word(bytelist, vocab):
-    """
-    Get's word for this set of bytes
-    """
-    longest_match = 0
-    match = None
-    for v in vocab:
-        if v == bytelist[:len(v)] and len(v) > longest_match:
-            longest_match = len(v)
-            match = v
-    return match
-
-def bytelist_to_vocablist(bytelist, vocab):
-    """
-    Get's list of vocab words corresponding to our byte list
-    """
-    vocablist = []
-    i = 0
-    while i < len(bytelist):
-        word = get_word(bytelist[i:], vocab)
-        vocablist.append(word)
-        i += len(word)
-    return vocablist
-
-def vocablist_to_vocabpairs(vocablist):
-    vocabpairs = []
-    for i in range(1, len(vocablist)):
-        vocabpairs.append(vocablist[i-1]+vocablist[i])
-    return vocabpairs
-
-def get_most_common_pair(pair_counts):
-    maxcount = 0
-    for (pair, count) in pair_counts.items():
-        if count > maxcount:
-            maxpair = pair
-            maxcount = count
-        elif count == maxcount and pair > maxpair:
-            maxpair = pair
-            maxcount = count
-    return maxpair
-
-# okay 
-# input = "cat catas"
-# ca 2
-# at 2
-# ta 1
-# as 1
-
-# first one is word, second one is position
-# ca (0,0), (1,0) : 2
-# at (0, 1), (1,1) : 2
-# ta (1,2) : 1
-# as (1,3) : 1
-
-# first round we see ca is the most common
-# go to word 0, spot 1, add (ca, t) to index because it's (a,t), remove the (a,t) pair
-# next go to word (1, 0), same deal
-
-# (ca, t) (0,0), (1,0) : 2
-# (t,a) (1,2) : 1
-# (a,s) (1,3) : 1
-
-# (cat, a) (1, 0) : 1
-# (a, s) (1, 3) : 1
-
-# I think we want organized so that the 
-
-
-
-
-
-
-# alphabet pairs
-# pretokens
-
-# hash of alphabet pairs, I think the size of this will be relatively flat
-# this will store the counts, we'll do a linear scan
-# I think the size of this is bounded by size of alphabet**2
-
-# pretokens, can be any number of these really
-# think we want a sorted list of these for quick lookups
-
-ex = bytes("cats", "utf-8")
-ex1 = bytes("dogs", "utf-8")
-
 import functools
+
 def flatten(x:tuple[bytes]) -> bytes:
     return functools.reduce(lambda a,b: a+b,x)
-
-
-example = bytes("cats are dogs","utf-8")
-poop = [example[i:i+1] for i in range(len(example))]
 
 class Pretoken:
     """
@@ -193,7 +38,8 @@ class AlphabetPair:
         elif self.count < otherpair.count:
             return True
         elif self.count == otherpair.count:
-            return flatten(self.pair) <  flatten(otherpair.pair)
+            return self.pair < otherpair.pair
+            # return flatten(self.pair) <  flatten(otherpair.pair)
         else:
             return False
     def __gt__(self, otherpair):
@@ -224,8 +70,8 @@ def bpe_less_naive(
     merges = []
     # Pretokenize 
     PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
-    with open(input_path, "rb") as fi:
-        input = fi.read().decode("utf-8")
+    with open(input_path, "r") as fi:
+        input = fi.read()
     pretoken_re = re.finditer(PAT, input)
     # hash of pretokens
     pretoken_hash = {}
@@ -246,12 +92,9 @@ def bpe_less_naive(
     # While vocab is small enough
     while len(vocab) < vocab_size:
         # get max alphabet pair
-        maxkey = None
-        maxpair = None
-        for (key, pair) in alphabet_pair_hash.items():
-            if pair > maxpair:
-                maxpair = pair
-                maxkey = key
+        maxpair = max(alphabet_pair_hash.values())
+        if maxpair is None:
+            raise Exception("maxpair is none")
         # add to vocab/merges 
         flatmaxpair = flatten(maxpair.pair)
         vocab.append(flatmaxpair)
@@ -342,9 +185,137 @@ def get_new_pairs(pretoken:Pretoken, inds:list[int]):
     return new_pairs
         
 if __name__ == "__main__":
-    input = """abababa cdcd"""
-    with open("temp.txt","w") as fi:
-        fi.write(input)
-    (vocab, merges) = bpe_less_naive("temp.txt", 259, [])
+    (vocab, merges) = bpe_less_naive("tests/fixtures/corpus.en", 356, [])
     print(f"merges {merges}")
+    with open("merges.txt", "w") as fi:
+        for m in merges:
+            fi.write(f"{m}\n")
 
+
+# from common import FIXTURES_PATH, gpt2_bytes_to_unicode
+# # Compare the learned merges to the expected output merges
+# gpt2_byte_decoder = {v: k for k, v in gpt2_bytes_to_unicode().items()}
+
+# reference_merges_path = "./fixtures/train-bpe-reference-merges.txt"
+# with open(reference_merges_path, encoding="utf-8") as f:
+#     gpt2_reference_merges = [tuple(line.rstrip().split(" ")) for line in f]
+#     reference_merges = [
+#         (
+#             bytes([gpt2_byte_decoder[token] for token in merge_token_1]),
+#             bytes([gpt2_byte_decoder[token] for token in merge_token_2]),
+#         )
+#         for merge_token_1, merge_token_2 in gpt2_reference_merges
+#     ]
+
+# with open("../ref_merges.txt","w") as fi:
+#     for rm in reference_merges:
+#         fi.write(f"{rm}\n")
+
+
+# # seems like pretokenization is fine 
+# PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+# with open("./tests/fixtures/corpus.en","rb") as fi:
+#     x = fi.read()
+# words = re.findall(PAT, x.decode())
+
+
+# with open("./tests/fixtures/corpus.en","r") as fi:
+#     x1 = fi.read()
+
+# words1 = re.findall(PAT, x1)
+# words == words1
+
+# pretoken_re = re.finditer(PAT, x1)
+# # words2 = [i.group() for i in pretoken_re]
+
+
+# # hash of pretokens
+# pretoken_hash = {}
+# for pretoken_match in pretoken_re:
+#     pretoken = pretoken_match.group()
+#     pretoken_obj = pretoken_hash.get(pretoken, Pretoken(pretoken))
+#     pretoken_obj.count += 1
+#     pretoken_hash[pretoken] = pretoken_obj
+
+# len(pretoken_hash)
+# # looks like we counted properly
+# functools.reduce(lambda a,b: a + b.count, pretoken_hash.values(), 0) == len(words)
+# # assert that alphabet list is good
+# for (pt, al) in pretoken_hash.items():
+#     print(f"pt {pt}")
+#     assert pt == flatten(al.alphabet_list).decode("utf-8")
+# # this looks good too
+# for pt in pretoken_hash.values():
+#     al = pt.alphabet_list
+#     for a in al:
+#         assert len(a) == 1
+
+
+# # initialize our alphabet pair hash
+# alphabet_pair_hash = {}
+# for pretoken in pretoken_hash.values():
+#     for i in range(1, len(pretoken.alphabet_list)):
+#         pair = (pretoken.alphabet_list[i-1], pretoken.alphabet_list[i])
+#         # get alphabet pairs, add to alphabet pair hash
+#         update_alphabet_hash(alphabet_pair_hash, pair, pretoken)
+
+
+
+# # (ap, ap_obj) = alphabet_pair_hash.items().__iter__().__next__()
+# # len(ap_obj.pretoken_list)
+
+# # so far looks good
+
+# # cool 
+# for (ap, ap_obj) in alphabet_pair_hash.items():
+#     for pretoke in ap_obj.pretoken_list:
+#         assert flatten(ap) in flatten(pretoke.alphabet_list)
+
+
+# counts = [pair.count for pair in alphabet_pair_hash.values()]
+# counts.sort()
+
+# for pretoke in maxpair.pretoken_list:
+#     print(flatten(pretoke.alphabet_list))
+    
+# maxpair = max(alphabet_pair_hash.values())
+
+# # functools.reduce(lambda a,b: a+b.count, maxpair.pretoken_list, 0)
+# old_al_lengths = [len(pretoke.alphabet_list) for pretoke in maxpair.pretoken_list]
+# old_flat_lens = [len(flatten(pretoke.alphabet_list)) for pretoke in maxpair.pretoken_list]
+# assert old_al_lengths == old_flat_lens
+
+
+# # add to vocab/merges 
+# flatmaxpair = flatten(maxpair.pair)
+# vocab.append(flatmaxpair)
+# merges.append(maxpair.pair)
+# # iterate over pretokens this pair is in
+# for pretoken in maxpair.pretoken_list:
+#     # get current indices and decrement old surrounding pair counts
+#     inds = get_pair_indices(pretoken, maxpair.pair)
+#     decrement_old_pairs(alphabet_pair_hash, pretoken, inds)
+#     # update this pretoken's alphabet list
+#     inds = update_alphabet_list(pretoken, maxpair.pair)
+#     # get updated alphabet pairs from this change
+#     new_pairs = get_new_pairs(pretoken, inds)
+#     for pair in new_pairs:
+#         # update alphabet_pair_hash
+#         update_alphabet_hash(alphabet_pair_hash, pair, pretoken)
+# # remove old pair
+# alphabet_pair_hash.pop(maxpair.pair)
+
+# new_al_lengths = [len(pretoke.alphabet_list) for pretoke in maxpair.pretoken_list]
+# old_al_lengths == new_al_lengths
+
+
+# whelp = {}
+# for (k, v) in alphabet_pair_hash.items():
+#     if len(flatten(k)) > 2:
+#         whelp[k] = v
+
+# for (k,v) in alphabet_pair_hash.items():
+
+#     assert 
+
+# pretoke = maxpair.pretoken_list[0]
