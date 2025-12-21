@@ -72,6 +72,9 @@ def bpe_less_naive(
     PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
     with open(input_path, "r") as fi:
         input = fi.read()
+    # replace special tokens
+    for st in special_tokens:
+        input.replace(st, "")
     pretoken_re = re.finditer(PAT, input)
     # hash of pretokens
     pretoken_hash = {}
@@ -119,6 +122,24 @@ def bpe_less_naive(
     for (i, v) in enumerate(vocab):
         vocab_dict[i] = v
     return (vocab_dict, merges)
+
+def split_on_special_tokens(str_value, special_tokens:list[str]):
+    str_list = []
+    while True:
+        locs = [str_value.find(st) for st in special_tokens]
+        actual_locs = [loc for loc in locs if loc >= 0]
+        actual_loc_sts = [st for (st,loc) in zip(special_tokens, locs) if loc >= 0]
+        if actual_locs == []:
+            str_list.append(str_value)
+            break
+        else:
+            first_match = min(actual_locs)
+            first_match_st = actual_loc_sts[actual_locs.index(first_match)]
+            splits = str_value.split(first_match_st, 1)
+            str_list.append(splits[0])
+            str_value = splits[1]
+    return str_list
+
 
 def update_alphabet_hash(alphabet_pair_hash, alphabet_pair:tuple[bytes], pretoken:Pretoken):
     if alphabet_pair in alphabet_pair_hash:
