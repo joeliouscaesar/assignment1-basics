@@ -1,23 +1,11 @@
 import regex as re
 import os
 import functools
+from cs336_basics.pretoken_stuff import Pretoken
+from cs336_basics.pretoken_stuff import get_pretoken_list
 
 def flatten(x:tuple[bytes]) -> bytes:
     return functools.reduce(lambda a,b: a+b,x)
-
-class Pretoken:
-    """
-    Class for a single pretoken
-
-    Attributes
-    - count:int number of times its in the corpus
-    - alphabet_list:list[bytes] is a list of bytes representing words in our alphabet
-    """
-    def __init__(self, pretoken:str):
-        self.count = 0
-        pretoken_bytes = bytes(pretoken, "utf-8")
-        self.alphabet_list = [pretoken_bytes[i:i+1] for i in range(len(pretoken_bytes))] # initialized assuming bytes are alphabet
-        return
 
 
 class AlphabetPair:
@@ -59,7 +47,6 @@ class AlphabetPair:
 
 def bpe_less_naive(
     input_path: str | os.PathLike,
-    # input: str,
     vocab_size: int,
     special_tokens: list[str],
     **kwargs
@@ -68,24 +55,15 @@ def bpe_less_naive(
     vocab = [i.to_bytes() for i in range(256)]
     vocab += [bytes(st,"utf-8") for st in special_tokens]
     merges = []
-    # Pretokenize 
-    PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
-    with open(input_path, "r") as fi:
-        input = fi.read()
-    input_splits = split_on_special_tokens(input, special_tokens)
-    # hash of pretokens
-    pretoken_hash = {}
-    for input_split in input_splits:
-        pretoken_re = re.finditer(PAT, input_split)
-        for pretoken_match in pretoken_re:
-            pretoken = pretoken_match.group()
-            pretoken_obj = pretoken_hash.get(pretoken, Pretoken(pretoken))
-            pretoken_obj.count += 1
-            pretoken_hash[pretoken] = pretoken_obj
+
+    num_processes = kwargs.get("num_processes", 1)
+    
+    # get pretoken list
+    pretokens = get_pretoken_list(input_path, special_tokens, num_processes)
 
     # initialize our alphabet pair hash
     alphabet_pair_hash = {}
-    for pretoken in pretoken_hash.values():
+    for pretoken in pretokens:
         for i in range(1, len(pretoken.alphabet_list)):
             pair = (pretoken.alphabet_list[i-1], pretoken.alphabet_list[i])
             # get alphabet pairs, add to alphabet pair hash
@@ -122,22 +100,6 @@ def bpe_less_naive(
         vocab_dict[i] = v
     return (vocab_dict, merges)
 
-def split_on_special_tokens(str_value, special_tokens:list[str]):
-    str_list = []
-    while True:
-        locs = [str_value.find(st) for st in special_tokens]
-        actual_locs = [loc for loc in locs if loc >= 0]
-        actual_loc_sts = [st for (st,loc) in zip(special_tokens, locs) if loc >= 0]
-        if actual_locs == []:
-            str_list.append(str_value)
-            break
-        else:
-            first_match = min(actual_locs)
-            first_match_st = actual_loc_sts[actual_locs.index(first_match)]
-            splits = str_value.split(first_match_st, 1)
-            str_list.append(splits[0])
-            str_value = splits[1]
-    return str_list
 
 
 def update_alphabet_hash(alphabet_pair_hash, alphabet_pair:tuple[bytes], pretoken:Pretoken):
@@ -210,3 +172,6 @@ if __name__ == "__main__":
     with open("merges.txt", "w") as fi:
         for m in merges:
             fi.write(f"{m}\n")
+
+
+
