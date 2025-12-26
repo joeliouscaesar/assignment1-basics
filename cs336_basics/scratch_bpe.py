@@ -35,22 +35,13 @@ class AlphabetPair:
             return True
         return otherpair < self
 
-# 1. split inputs into list of pretokens
-# 2. for each pretoken in list, initialize Pretoken and maintain count. maybe store hash for easy counting?
-# 3. for each unique pretoken in our pretoken hash, construct new hash with the alphabet pair counts and list of pretokens
-# 4. loop over alphabet pairs, with max alphabet pair
-#   a. add max pair to alphabet as bytes object
-#   b. for each Pretoken in the max pair pretoken_list, modify the alphabet_list and pair counts for that max pair (first occurrence)
-#   c. remove max pair from the pairs hash
-# 5. Loop 4 until we reach alphabet size
-
-
 def bpe_less_naive(
     input_path: str | os.PathLike,
     vocab_size: int,
     special_tokens: list[str],
     **kwargs
 ):
+
     # Initialize Vocabulary
     vocab = [i.to_bytes() for i in range(256)]
     vocab += [bytes(st,"utf-8") for st in special_tokens]
@@ -100,7 +91,6 @@ def bpe_less_naive(
     for (i, v) in enumerate(vocab):
         vocab_dict[i] = v
     return (vocab_dict, merges)
-
 
 
 def update_alphabet_hash(alphabet_pair_hash, alphabet_pair:tuple[bytes], pretoken:Pretoken):

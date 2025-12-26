@@ -18,8 +18,6 @@ class Pretoken:
         self.alphabet_list = [pretoken_bytes[i:i+1] for i in range(len(pretoken_bytes))] # initialized assuming bytes are alphabet
         return
 
-
-# okay so we're going to maintain sorted lists of pretokens we find for each chunk, return these
 def find_index(x, xs:list):
     """
     Finds index of x in a sorted list
@@ -44,7 +42,7 @@ def find_index(x, xs:list):
     return (upper)
 
 
-def split_on_special_tokens(str_value, special_tokens:list[str]):
+def split_on_special_tokens(str_value, special_tokens:list[str]) -> list[str]:
     str_list = []
     while True:
         locs = [str_value.find(st) for st in special_tokens]
@@ -63,10 +61,18 @@ def split_on_special_tokens(str_value, special_tokens:list[str]):
 
 
 def child_process(args):
+    """
+    A little unncessary but basically a caller for get_chunk_pretoken_counts 
+    for each of the child processes
+    """
     bounds, input_path, special_tokens = args
     return get_chunk_pretoken_counts(input_path, bounds, special_tokens)
 
-def get_chunk_pretoken_counts(input_path:str, bounds:list[int], special_tokens:list[str]):
+def get_chunk_pretoken_counts(input_path:str, bounds:list[int], special_tokens:list[str]) -> tuple[list[str], list[int]]:
+    """
+    Returns a tuple of lists, the first is pretokens (sorted alphabetically) the second is the counts corresponding to
+    those pretokens
+    """
     pretokens = []
     pretoken_counts = []
     for i in range(1, len(bounds)):
@@ -92,7 +98,7 @@ def get_chunk_pretoken_counts(input_path:str, bounds:list[int], special_tokens:l
                 pretoken_counts[ind] += 1
     return (pretokens, pretoken_counts)
 
-def merge_results(pretoken_list:list[Pretoken], child_process_results):
+def merge_results(pretoken_list:list[Pretoken], child_process_results) -> list[Pretoken]:
     """
     Takes results from the child processes and makes one list
     Linear scan through each
@@ -126,17 +132,20 @@ def merge_results(pretoken_list:list[Pretoken], child_process_results):
             result_ind += 1
     return pretoken_list    
 
-# w1 = ["bats","cats","dogs"]
-# c1 = [1,3,2]
-# w2 = ["africa","cats","dogs","rain"]
-# c2 = [1,1,7,5]
+def split_bounds(bounds, num_processes) -> list[list[int]]:
+    """
+    Splits up bounds so we don't have to read in whole subsets of the file at once
+    """
+    bound_splits = []
+    size = (len(bounds)-1) // num_processes
+    i = 1
+    while (i-1) * size < len(bounds)-1:
+        bound_splits.append(bounds[(i-1)*size:(i*size+1)])
+        i+=1
+    return bound_splits
 
-# results = [(w1,c1), (w2,c2)]
-# test = 
-# for t in test:
-#     print(f"{t.pretoken} {t.count}")
 
-def get_pretoken_list(input_path, special_tokens, num_processes:int, num_corpus_splits:int):
+def get_pretoken_list(input_path, special_tokens, num_processes:int, num_corpus_splits:int) -> list[Pretoken]:    
     # get's the boundaries
     with open(input_path, "rb") as f:
         boundaries = find_chunk_boundaries(f, num_corpus_splits, b"<|endoftext|>")
@@ -149,33 +158,5 @@ def get_pretoken_list(input_path, special_tokens, num_processes:int, num_corpus_
     return functools.reduce(merge_results,results, [])
 
 
-
-# split_bounds(x, 4)
-
-
-# x = list(range(17))
-# processes = 4
-
-# with mp.Pool(3) as p:
-#     print(p.map(f, [(1,2), (2,2), (3,4)]))
-
-# num_corpus_splits = 16
-# with open("data/TinyStoriesV2-GPT4-valid.txt", "rb") as f:
-#     boundaries = find_chunk_boundaries(f, num_corpus_splits, b"<|endoftext|>")
-
-def split_bounds(bounds, num_processes):
-    bound_splits = []
-    size = (len(bounds)-1) // num_processes
-    i = 1
-    while (i-1) * size < len(bounds)-1:
-        bound_splits.append(bounds[(i-1)*size:(i*size+1)])
-        i+=1
-    return bound_splits
-
-# split_bounds(boundaries, 1)
-
-
-    # # The following is a serial implementation, but you can parallelize this
-    # # by sending each start/end pair to a set of processes.
 
 
