@@ -129,7 +129,7 @@ def bpe_less_naive(
                 if pair not in changed_pairs:
                     changed_pairs[pair] = AlphabetPair(*pair)
                 changed_pairs[pair].pretoken_list.append(pretoken)
-                changed_pairs[pair].count += 1
+                changed_pairs[pair].count += pretoken.count
     
         # remove old pair
         alphabet_pair_hash.pop(maxpair.pair)
@@ -194,7 +194,7 @@ def decrement_old_pairs(changed_pairs, pretoken:Pretoken, inds:list[int]):
             old_high = (pretoken.alphabet_list[ind+1], pretoken.alphabet_list[ind+2])
             if old_high not in changed_pairs:
                 changed_pairs[old_high] = AlphabetPair(*old_high)
-            changed_pairs[old_high].count = -pretoken.count
+            changed_pairs[old_high].count -= pretoken.count
     return
 
 def update_alphabet_list(pretoken:Pretoken, pair:tuple[bytes]) -> list[int]:
