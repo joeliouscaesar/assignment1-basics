@@ -51,11 +51,11 @@ def bpe_less_naive(
     num_corpus_splits = kwargs.get("num_corpus_splits", 1)
     
     # get pretoken list
-    pretokens = get_pretoken_list(input_path, special_tokens, num_processes, num_corpus_splits)
+    pretokens:dict = get_pretoken_list(input_path, special_tokens, num_processes, num_corpus_splits)
 
     # initialize our alphabet pair hash
     alphabet_pair_hash = {}
-    for pretoken in pretokens:
+    for pretoken in pretokens.values():
         for i in range(1, len(pretoken.alphabet_list)):
             pair = (pretoken.alphabet_list[i-1], pretoken.alphabet_list[i])
             # get alphabet pairs, add to alphabet pair hash

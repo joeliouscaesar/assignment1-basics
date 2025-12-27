@@ -1,22 +1,22 @@
 from cs336_basics.scratch_bpe import bpe_less_naive
 import pickle
 
-suffix = "run1x1_2"
-data_path = "data/TinyStoriesV2-GPT4-valid.txt"
+suffix = "train4x1024"
+data_path = "data/TinyStoriesV2-GPT4-train.txt"
 # vocab, merges = bpe_less_naive(data_path, 1000, ["<|endoftext|>"], num_processes=1, num_corpus_splits = 1)
-vocab, merges = bpe_less_naive(data_path, 1000, ["<|endoftext|>"], num_processes=1, num_corpus_splits = 1)
+vocab, merges = bpe_less_naive(data_path, 10000, ["<|endoftext|>"], num_processes=4, num_corpus_splits = 1024)
 
 # save vocab/merges
-# with open(f"vocab_{suffix}","wb") as fi:
-#     pickle.dump(vocab, fi)
+with open(f"vocab_{suffix}","wb") as fi:
+    pickle.dump(vocab, fi)
 with open(f"merges_{suffix}","wb") as fi:
     pickle.dump(merges, fi)
 
-# import pickle
-import pstats
-p = pstats.Stats("valid_cprof_run1x1_2")
-stats = p.strip_dirs().sort_stats("cumulative")
-stats.print_stats(10)
+# # import pickle
+# import pstats
+# p = pstats.Stats("valid_cprof_run1x1_2")
+# stats = p.strip_dirs().sort_stats("cumulative")
+# stats.print_stats(10)
 
 # p = pstats.Stats("valid_cprof_run1x16")
 # stats = p.strip_dirs().sort_stats("cumulative")

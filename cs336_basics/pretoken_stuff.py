@@ -42,23 +42,26 @@ def find_index(x, xs:list):
     return (upper)
 
 
-def split_on_special_tokens(str_value, special_tokens:list[str]) -> list[str]:
-    str_list = []
-    while True:
-        locs = [str_value.find(st) for st in special_tokens]
-        actual_locs = [loc for loc in locs if loc >= 0]
-        actual_loc_sts = [st for (st,loc) in zip(special_tokens, locs) if loc >= 0]
-        if actual_locs == []:
-            str_list.append(str_value)
-            break
-        else:
-            first_match = min(actual_locs)
-            first_match_st = actual_loc_sts[actual_locs.index(first_match)]
-            splits = str_value.split(first_match_st, 1)
-            str_list.append(splits[0])
-            str_value = splits[1]
-    return str_list
+# def split_on_special_tokens(str_value, special_tokens:list[str]) -> list[str]:
+#     str_list = []
+#     while True:
+#         locs = [str_value.find(st) for st in special_tokens]
+#         actual_locs = [loc for loc in locs if loc >= 0]
+#         actual_loc_sts = [st for (st,loc) in zip(special_tokens, locs) if loc >= 0]
+#         if actual_locs == []:
+#             str_list.append(str_value)
+#             break
+#         else:
+#             first_match = min(actual_locs)
+#             first_match_st = actual_loc_sts[actual_locs.index(first_match)]
+#             splits = str_value.split(first_match_st, 1)
+#             str_list.append(splits[0])
+#             str_value = splits[1]
+#     return str_list
 
+def split_on_special_tokens(str_value, special_tokens:list[str]) -> list[str]:
+    split_pattern = "|".join(re.escape(token) for token in special_tokens)
+    return re.split(split_pattern, str_value)
 
 def child_process(args):
     """
@@ -97,6 +100,61 @@ def get_chunk_pretoken_counts(input_path:str, bounds:list[int], special_tokens:l
                     pretoken_counts.insert(ind, 0)
                 pretoken_counts[ind] += 1
     return (pretokens, pretoken_counts)
+
+
+def get_chunk_pretoken_counts(input_path:str, bounds:list[int], special_tokens:list[str]) -> dict[str,int]:
+    """
+    Returns a tuple of lists, the first is pretokens (sorted alphabetically) the second is the counts corresponding to
+    those pretokens
+    """
+    pretoken_counts = {}
+    for i in range(1, len(bounds)):
+        lowbound = bounds[i-1]
+        upbound = bounds[i]
+        with open(input_path,"rb") as f:
+            f.seek(lowbound)
+            chunk = f.read(upbound - lowbound).decode("utf-8", errors="ignore")
+        input_splits = split_on_special_tokens(chunk, special_tokens)
+        PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+        for input_split in input_splits:
+            pretoken_re = re.finditer(PAT, input_split)
+            for pretoken_match in pretoken_re:
+                pretoken = pretoken_match.group()
+                if pretoken in pretoken_counts:
+                    pretoken_counts[pretoken] += 1
+                else:
+                    pretoken_counts[pretoken] = 1
+    return pretoken_counts
+
+# def get_chunk_pretoken_counts(input_path:str, bounds:list[int], special_tokens:list[str]) -> tuple[list[str], list[int]]:
+#     """
+#     Returns a tuple of lists, the first is pretokens (sorted alphabetically) the second is the counts corresponding to
+#     those pretokens
+#     """
+#     pretokens = []
+#     pretoken_counts = []
+#     for i in range(1, len(bounds)):
+#         lowbound = bounds[i-1]
+#         upbound = bounds[i]
+#         with open(input_path,"rb") as f:
+#             f.seek(lowbound)
+#             chunk = f.read(upbound - lowbound).decode("utf-8", errors="ignore")
+#         input_splits = split_on_special_tokens(chunk, special_tokens)
+#         PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+#         for input_split in input_splits:
+#             pretoken_re = re.finditer(PAT, input_split)
+#             for pretoken_match in pretoken_re:
+#                 pretoken = pretoken_match.group()
+#                 # find index in our pretoken list 
+#                 ind = find_index(pretoken, pretokens)
+#                 if len(pretokens) == 0 or ind >= len(pretokens):
+#                     pretokens.insert(ind, pretoken)
+#                     pretoken_counts.insert(ind, 0)
+#                 elif pretokens[ind] != pretoken:
+#                     pretokens.insert(ind, pretoken)
+#                     pretoken_counts.insert(ind, 0)
+#                 pretoken_counts[ind] += 1
+#     return (pretokens, pretoken_counts)
 
 def merge_results(pretoken_list:list[Pretoken], child_process_results) -> list[Pretoken]:
     """
@@ -154,8 +212,17 @@ def get_pretoken_list(input_path, special_tokens, num_processes:int, num_corpus_
     args_list = [(bound_group, input_path, special_tokens) for bound_group in bounds_groups]
     with mp.Pool(min(4,num_processes)) as p:
         results = p.map(child_process, args_list)
-    # cool now for each of our results, add to a final list
-    return functools.reduce(merge_results,results, [])
+    
+    pretoken_dict = {}
+    for res in results:
+        for (k,v) in res.items():
+            pretoke = pretoken_dict.get(k, Pretoken(k))
+            pretoke.count += v
+            pretoken_dict[k] = pretoke
+    return pretoken_dict
+
+    # # cool now for each of our results, add to a final list
+    # return functools.reduce(merge_results,results, [])
 
 
 
